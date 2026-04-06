@@ -669,20 +669,20 @@ function showNextFlashcard() {
   const fcInner = document.getElementById('fcInner');
   const isFlipped = fcInner.classList.contains('flipped');
 
+  document.getElementById('fcBack').textContent = '';
   if (isFlipped) {
-    document.getElementById('fcBack').textContent = '';
     fcInner.classList.remove('flipped');
-    document.getElementById('fcActions').style.display = 'none';
-    document.getElementById('fcHint').style.display = '';
-    setTimeout(() => {
-      document.getElementById('fcFront').textContent = G.fcCurrentCard.equation;
-      document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
-    }, 500);
-  } else {
+  }
+  document.getElementById('fcActions').style.display = 'none';
+  document.getElementById('fcHint').style.display = '';
+
+  const setFront = () => {
     document.getElementById('fcFront').textContent = G.fcCurrentCard.equation;
-    document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
-    document.getElementById('fcActions').style.display = 'none';
-    document.getElementById('fcHint').style.display = '';
+  };
+  if (isFlipped) {
+    setTimeout(setFront, 500);
+  } else {
+    setFront();
   }
 
   const done = G.fcDone;
@@ -695,6 +695,7 @@ function showNextFlashcard() {
 function flipFlashcard() {
   if (G.fcFlipped) return;
   G.fcFlipped = true;
+  document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
   document.getElementById('fcInner').classList.add('flipped');
   document.getElementById('fcActions').style.display = 'flex';
   document.getElementById('fcHint').style.display = 'none';
