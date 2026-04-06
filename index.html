@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Množenje - Igra Memorije</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e94560">
+<meta name="description" content="Nauči tablicu množenja kroz zabavnu igru memorije!">
+
+<!-- iOS support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Množenje">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --table-1: #e74c3c; --table-2: #e67e22; --table-3: #f1c40f;
+  --table-4: #2ecc71; --table-5: #3498db; --table-6: #9b59b6;
+  --table-7: #1abc9c; --table-8: #e84393; --table-9: #00b894;
+  --table-10: #6c5ce7;
+  --bg: #1a1a2e; --surface: #16213e; --surface2: #0f3460;
+  --text: #eee; --text-dim: #aaa; --accent: #e94560;
+  --card-back: #2c3e6d; --success: #2ecc71; --error: #e74c3c;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; overflow-x: hidden;
+}
+
+.screen { display: none; padding: 20px; max-width: 1000px; margin: 0 auto; }
+.screen.active { display: block; }
+
+h1 { text-align: center; font-size: 2em; margin-bottom: 10px; }
+h2 { text-align: center; font-size: 1.4em; margin-bottom: 15px; color: var(--text-dim); }
+h3 { font-size: 1.1em; margin-bottom: 10px; }
+
+/* ─── Setup Screen ─── */
+.setup-section { background: var(--surface); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.setup-section h3 { color: var(--accent); }
+
+.mode-buttons, .table-buttons, .diff-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+.btn {
+  background: var(--surface2); color: var(--text); border: 2px solid transparent;
+  border-radius: 8px; padding: 10px 18px; cursor: pointer; font-size: 1em;
+  transition: all 0.2s; font-family: inherit;
+}
+.btn:hover { background: #1a4a7a; transform: translateY(-1px); }
+.btn.selected { border-color: var(--accent); background: #2a1a3e; box-shadow: 0 0 8px rgba(233,69,96,0.4); }
+.btn-primary {
+  background: var(--accent); color: white; font-size: 1.2em;
+  padding: 14px 40px; border: none; border-radius: 12px; cursor: pointer;
+  font-family: inherit; font-weight: bold; transition: all 0.2s;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(233,69,96,0.4); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-small { padding: 6px 14px; font-size: 0.9em; }
+
+.table-btn {
+  width: 52px; height: 52px; font-size: 1.3em; font-weight: bold;
+  display: flex; align-items: center; justify-content: center; border-radius: 10px;
+  transition: all 0.2s;
+}
+.table-btn.selected {
+  background: var(--accent); color: white; border-color: white;
+  box-shadow: 0 0 12px rgba(233,69,96,0.6); transform: scale(1.1);
+}
+
+.player-inputs { margin-top: 10px; }
+.player-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.player-input-row label { min-width: 70px; font-weight: bold; }
+.player-input-row input {
+  flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #444;
+  background: var(--bg); color: var(--text); font-size: 1em; font-family: inherit;
+}
+
+.player-count-btns { display: flex; gap: 8px; margin-bottom: 12px; }
+
+.start-row { text-align: center; margin-top: 20px; }
+
+.order-buttons { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ─── Flashcard Screen ─── */
+#flashcard-screen { text-align: center; }
+.flashcard-progress { background: #333; border-radius: 20px; height: 14px; margin: 15px 0; overflow: hidden; }
+.flashcard-progress-bar { height: 100%; background: var(--accent); border-radius: 20px; transition: width 0.4s; }
+.flashcard-stats { color: var(--text-dim); margin-bottom: 15px; font-size: 0.95em; }
+
+.flashcard-container {
+  perspective: 800px; width: 320px; height: 220px; margin: 20px auto; cursor: pointer;
+}
+.flashcard-inner {
+  width: 100%; height: 100%; position: relative;
+  transition: transform 0.5s; transform-style: preserve-3d;
+}
+.flashcard-inner.flipped { transform: rotateY(180deg); }
+.flashcard-front, .flashcard-back {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: 16px; display: flex; align-items: center; justify-content: center;
+  font-size: 2.5em; font-weight: bold; box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+.flashcard-front { background: var(--surface2); }
+.flashcard-back { background: var(--success); transform: rotateY(180deg); color: white; }
+
+.flashcard-actions { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
+.flashcard-actions .btn { min-width: 130px; font-size: 1.1em; padding: 12px 20px; }
+.btn-know { border-color: var(--success); }
+.btn-know:hover { background: rgba(46,204,113,0.2); }
+.btn-repeat { border-color: var(--error); }
+.btn-repeat:hover { background: rgba(231,76,60,0.2); }
+
+.flashcard-hint { color: var(--text-dim); font-size: 0.9em; margin-top: 12px; }
+
+/* ─── Game Board ─── */
+#game-screen { max-width: 1100px; }
+.game-header {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; margin-bottom: 15px;
+}
+.game-info { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.game-info span { font-size: 0.95em; }
+.game-timer { font-variant-numeric: tabular-nums; font-weight: bold; font-size: 1.1em; }
+
+.player-scores {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.player-score {
+  padding: 8px 16px; border-radius: 10px; background: var(--surface);
+  border: 2px solid transparent; transition: all 0.3s;
+}
+.player-score.active-player { border-color: var(--accent); box-shadow: 0 0 10px rgba(233,69,96,0.3); }
+.player-score .pname { font-weight: bold; }
+.player-score .pscore { font-size: 1.3em; font-weight: bold; }
+
+.turn-indicator {
+  text-align: center; padding: 8px; margin-bottom: 10px;
+  background: var(--surface); border-radius: 8px; font-weight: bold;
+}
+
+.card-grid {
+  display: grid; gap: 10px; justify-content: center;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+
+.card-cell { perspective: 600px; aspect-ratio: 3/4; }
+.card {
+  width: 100%; height: 100%; position: relative; cursor: pointer;
+  transform-style: preserve-3d; transition: transform 0.4s;
+}
+.card.flipped { transform: rotateY(180deg); }
+.card.matched { transform: rotateY(180deg); }
+.card.matched .card-face-front { opacity: 0.6; }
+
+.card-face {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  font-weight: bold; box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  padding: 6px; text-align: center; word-break: break-word;
+}
+.card-face-back {
+  background: var(--card-back);
+  background-image:
+    repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.03) 8px, rgba(255,255,255,0.03) 16px);
+}
+.card-back-symbol {
+  font-size: 2em; opacity: 0.3; color: white;
+}
+.card-face-front {
+  transform: rotateY(180deg); flex-direction: column;
+}
+.card-face-front .card-type { font-size: 0.7em; opacity: 0.7; margin-bottom: 4px; }
+.card-face-front .card-value { font-size: 1.5em; }
+
+/* Grid column overrides */
+.grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
+.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-cols-6 { grid-template-columns: repeat(6, 1fr); }
+
+/* ─── Feedback Overlay ─── */
+.feedback-overlay {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+.feedback-overlay.show { opacity: 1; pointer-events: auto; }
+.feedback-content {
+  background: var(--surface); border-radius: 20px; padding: 30px 50px;
+  text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  transform: scale(0.8); transition: transform 0.3s;
+}
+.feedback-overlay.show .feedback-content { transform: scale(1); }
+.feedback-equation { font-size: 2em; font-weight: bold; margin: 10px 0; }
+.feedback-label { font-size: 1.2em; margin-bottom: 5px; }
+.feedback-match .feedback-label { color: var(--success); }
+.feedback-mismatch .feedback-label { color: var(--error); }
+.feedback-mismatch .feedback-hint { color: var(--text-dim); font-size: 0.95em; margin-top: 8px; }
+
+/* ─── Results Screen ─── */
+#results-screen { text-align: center; }
+.results-box {
+  background: var(--surface); border-radius: 16px; padding: 25px;
+  margin: 15px auto; max-width: 600px;
+}
+.stars { font-size: 3em; margin: 10px 0; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 15px 0; }
+.stat-item { background: var(--bg); border-radius: 10px; padding: 14px; }
+.stat-value { font-size: 1.8em; font-weight: bold; color: var(--accent); }
+.stat-label { font-size: 0.85em; color: var(--text-dim); }
+
+.winner-announce { font-size: 1.5em; margin: 15px 0; color: var(--accent); font-weight: bold; }
+.player-results { margin: 15px 0; }
+.player-result-row { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 8px; margin: 4px 0; background: var(--bg); }
+
+.equation-review { margin-top: 15px; text-align: left; }
+.equation-review h3 { margin-bottom: 10px; text-align: center; }
+.eq-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 10px; border-radius: 6px; margin: 3px 0;
+}
+.eq-row.eq-hard { background: rgba(231,76,60,0.15); }
+.eq-row.eq-easy { background: rgba(46,204,113,0.1); }
+.eq-attempts { font-size: 0.85em; color: var(--text-dim); }
+
+.results-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+
+/* ─── Achievements Screen ─── */
+#achievements-screen h2 { margin-bottom: 20px; }
+.achievement-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.achievement-card {
+  background: var(--surface); border-radius: 12px; padding: 16px; text-align: center;
+  border: 2px solid transparent; transition: all 0.3s;
+}
+.achievement-card.unlocked { border-color: gold; }
+.achievement-card.locked { opacity: 0.4; }
+.achievement-icon { font-size: 2.5em; margin-bottom: 6px; }
+.achievement-name { font-weight: bold; margin-bottom: 4px; }
+.achievement-desc { font-size: 0.85em; color: var(--text-dim); }
+
+/* ─── Achievement Notification ─── */
+.achievement-notif {
+  position: fixed; top: 20px; right: 20px; background: var(--surface);
+  border: 2px solid gold; border-radius: 14px; padding: 16px 24px;
+  z-index: 200; transform: translateX(120%); transition: transform 0.4s;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 12px;
+}
+.achievement-notif.show { transform: translateX(0); }
+.achievement-notif .ach-icon { font-size: 2em; }
+.achievement-notif .ach-text { font-weight: bold; }
+
+/* ─── Sound Toggle ─── */
+.sound-toggle {
+  position: fixed; top: 12px; right: 12px; z-index: 50;
+  background: var(--surface); border: 1px solid #444; border-radius: 50%;
+  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1.2em; color: var(--text); transition: all 0.2s;
+}
+.sound-toggle:hover { background: var(--surface2); }
+
+/* ─── Confetti ─── */
+.confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 150; overflow: hidden; }
+.confetti-piece {
+  position: absolute; width: 10px; height: 10px; top: -10px;
+  animation: confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  to { top: 110vh; transform: rotate(720deg); }
+}
+
+/* ─── Back Button ─── */
+.back-row { margin-bottom: 15px; }
+.btn-back { background: transparent; border: 1px solid #555; color: var(--text-dim); font-size: 0.9em; }
+.btn-back:hover { background: var(--surface); }
+
+/* ─── Flashcard Summary ─── */
+.fc-summary { max-width: 500px; margin: 0 auto; }
+.fc-summary-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; }
+.fc-repeat-count { color: var(--error); }
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .card-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .grid-cols-5, .grid-cols-6 { grid-template-columns: repeat(4, 1fr); }
+  h1 { font-size: 1.5em; }
+  .card-face-front .card-value { font-size: 1.2em; }
+  .flashcard-container { width: 280px; height: 190px; }
+  .flashcard-front, .flashcard-back { font-size: 2em; }
+  .feedback-content { padding: 20px 30px; }
+  .feedback-equation { font-size: 1.5em; }
+}
+@media (max-width: 480px) {
+  .card-grid, .grid-cols-5, .grid-cols-6 { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .screen { padding: 12px; }
+  .table-btn { width: 44px; height: 44px; font-size: 1.1em; }
+  .flashcard-container { width: 240px; height: 170px; }
+}
+</style>
+</head>
+<body>
+
+<button class="sound-toggle" id="soundToggle" title="Zvuk">&#128266;</button>
+
+<!-- ═══════ SETUP SCREEN ═══════ -->
+<div class="screen active" id="setup-screen">
+  <h1>&#10006; Množenje - Igra Memorije</h1>
+  <h2>Nauči tablicu množenja kroz igru!</h2>
+
+  <div class="setup-section">
+    <h3>Režim igre</h3>
+    <div class="mode-buttons">
+      <button class="btn" data-mode="flashcard" onclick="selectMode('flashcard')">&#128218; Učenje</button>
+      <button class="btn selected" data-mode="practice" onclick="selectMode('practice')">&#129504; Vježba (solo)</button>
+      <button class="btn" data-mode="multiplayer" onclick="selectMode('multiplayer')">&#128101; Više igrača</button>
+    </div>
+  </div>
+
+  <div class="setup-section" id="table-section">
+    <h3>Odaberi tablicu</h3>
+    <div class="table-buttons" id="tableButtons"></div>
+  </div>
+
+  <div class="setup-section" id="flashcard-order-section" style="display:none;">
+    <h3>Redoslijed</h3>
+    <div class="order-buttons">
+      <button class="btn selected" data-order="sequential" onclick="selectOrder('sequential')">Redom</button>
+      <button class="btn" data-order="shuffled" onclick="selectOrder('shuffled')">Nasumično</button>
+    </div>
+  </div>
+
+  <div class="setup-section" id="difficulty-section">
+    <h3>Težina</h3>
+    <div class="diff-buttons">
+      <button class="btn selected" data-diff="easy" onclick="selectDifficulty('easy')">Lako (10 karata)</button>
+      <button class="btn" data-diff="medium" onclick="selectDifficulty('medium')">Srednje (16 karata)</button>
+      <button class="btn" data-diff="hard" onclick="selectDifficulty('hard')">Teško (24 karata)</button>
+    </div>
+  </div>
+
+  <div class="setup-section" id="players-section" style="display:none;">
+    <h3>Igrači</h3>
+    <div class="player-count-btns">
+      <button class="btn btn-small selected" onclick="setPlayerCount(2)">2 igrača</button>
+      <button class="btn btn-small" onclick="setPlayerCount(3)">3 igrača</button>
+      <button class="btn btn-small" onclick="setPlayerCount(4)">4 igrača</button>
+    </div>
+    <div class="player-inputs" id="playerInputs"></div>
+  </div>
+
+  <div class="start-row">
+    <button class="btn-primary" id="startBtn" onclick="startGame()">Počni igru!</button>
+  </div>
+</div>
+
+<!-- ═══════ FLASHCARD SCREEN ═══════ -->
+<div class="screen" id="flashcard-screen">
+  <div class="back-row"><button class="btn btn-back" onclick="showScreen('setup-screen')">&#8592; Nazad</button></div>
+  <h2 id="fcTitle">Učenje - Tablica 5</h2>
+  <div class="flashcard-progress"><div class="flashcard-progress-bar" id="fcProgressBar"></div></div>
+  <div class="flashcard-stats" id="fcStats"></div>
+  <div class="flashcard-container" id="fcContainer" onclick="flipFlashcard()">
+    <div class="flashcard-inner" id="fcInner">
+      <div class="flashcard-front" id="fcFront"></div>
+      <div class="flashcard-back" id="fcBack"></div>
+    </div>
+  </div>
+  <div class="flashcard-hint" id="fcHint">Klikni karticu da vidiš odgovor</div>
+  <div class="flashcard-actions" id="fcActions" style="display:none;">
+    <button class="btn btn-repeat" onclick="gradeFlashcard(false)">&#128260; Ponovi</button>
+    <button class="btn btn-know" onclick="gradeFlashcard(true)">&#9989; Znam</button>
+  </div>
+</div>
+
+<!-- ═══════ GAME SCREEN ═══════ -->
+<div class="screen" id="game-screen">
+  <div class="back-row"><button class="btn btn-back" onclick="confirmQuit()">&#8592; Nazad</button></div>
+  <div class="game-header">
+    <div class="game-info">
+      <span class="game-timer" id="gameTimer">&#9201; 0:00</span>
+      <span id="pairsFound">Parovi: 0 / 0</span>
+      <span id="moveCount">Potezi: 0</span>
+    </div>
+  </div>
+  <div class="player-scores" id="playerScores"></div>
+  <div class="turn-indicator" id="turnIndicator" style="display:none;"></div>
+  <div class="card-grid" id="cardGrid"></div>
+</div>
+
+<!-- ═══════ RESULTS SCREEN ═══════ -->
+<div class="screen" id="results-screen">
+  <h1 id="resultsTitle">Bravo!</h1>
+  <div class="results-box">
+    <div class="stars" id="resultsStars"></div>
+    <div class="winner-announce" id="winnerAnnounce" style="display:none;"></div>
+    <div class="player-results" id="playerResults"></div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="equation-review" id="equationReview"></div>
+  </div>
+  <div class="results-actions">
+    <button class="btn-primary" onclick="playAgain()">Igraj ponovo</button>
+    <button class="btn" onclick="showScreen('setup-screen')">Novi odabir</button>
+    <button class="btn" onclick="showScreen('achievements-screen'); renderAchievements()">Dostignuća</button>
+  </div>
+</div>
+
+<!-- ═══════ ACHIEVEMENTS SCREEN ═══════ -->
+<div class="screen" id="achievements-screen">
+  <div class="back-row"><button class="btn btn-back" onclick="showScreen('setup-screen')">&#8592; Nazad</button></div>
+  <h1>&#127942; Dostignuća</h1>
+  <div class="achievement-grid" id="achievementGrid"></div>
+  <div style="text-align:center; margin-top:20px;">
+    <button class="btn" onclick="showScreen('setup-screen')">Nazad na početak</button>
+  </div>
+</div>
+
+<!-- ═══════ FEEDBACK OVERLAY ═══════ -->
+<div class="feedback-overlay" id="feedbackOverlay">
+  <div class="feedback-content" id="feedbackContent"></div>
+</div>
+
+<!-- ═══════ ACHIEVEMENT NOTIFICATION ═══════ -->
+<div class="achievement-notif" id="achievementNotif">
+  <span class="ach-icon" id="achNotifIcon"></span>
+  <div><div class="ach-text" id="achNotifText"></div><div style="font-size:0.8em;color:var(--text-dim);">Novo dostignuće!</div></div>
+</div>
+
+<!-- ═══════ CONFETTI CONTAINER ═══════ -->
+<div class="confetti-container" id="confettiContainer"></div>
+
+<script>
+// ═══════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════
+const G = {
+  mode: 'practice',
+  selectedTables: [],
+  difficulty: 'easy',
+  order: 'sequential',
+  playerCount: 2,
+  playerNames: ['Igrač 1', 'Igrač 2', 'Igrač 3', 'Igrač 4'],
+
+  // Runtime
+  cards: [],
+  flippedIndices: [],
+  matchedPairs: 0,
+  totalPairs: 0,
+  moves: 0,
+  currentPlayer: 0,
+  playerScores: [0, 0, 0, 0],
+  timerInterval: null,
+  elapsedSeconds: 0,
+  locked: false,
+  pairAttempts: {},      // equation string -> attempt count
+  soundEnabled: true,
+
+  // Flashcard state
+  fcDeck: [],
+  fcRepeat: [],
+  fcDone: 0,
+  fcTotal: 0,
+  fcFlipped: false,
+  fcCurrentCard: null,
+  fcRound: 1,
+  fcStartTime: 0,
+  fcRepeatLog: {},       // equation -> repeat count
+};
+
+const PAIR_COUNTS = { easy: 5, medium: 8, hard: 12 };
+const TABLE_COLORS = {
+  1: '#e74c3c', 2: '#e67e22', 3: '#f1c40f', 4: '#2ecc71', 5: '#3498db',
+  6: '#9b59b6', 7: '#1abc9c', 8: '#e84393', 9: '#00b894', 10: '#6c5ce7'
+};
+const PLAYER_COLORS = ['#e94560', '#3498db', '#2ecc71', '#e67e22'];
+
+const ACHIEVEMENTS = [
+  { id: 'first_game', icon: '🎮', name: 'Prva Igra', desc: 'Završi prvu igru' },
+  { id: 'perfect', icon: '🏆', name: 'Savršeno Pamćenje', desc: 'Završi igru bez greške' },
+  { id: 'master_5', icon: '⭐', name: 'Tablica 5', desc: 'Završi tablicu 5 sa 3 zvjezdice' },
+  { id: 'master_7', icon: '💫', name: 'Tablica 7', desc: 'Završi tablicu 7 sa 3 zvjezdice' },
+  { id: 'master_9', icon: '🌟', name: 'Tablica 9', desc: 'Završi tablicu 9 sa 3 zvjezdice' },
+  { id: 'speed_easy', icon: '⚡', name: 'Munjevit', desc: 'Lako ispod 30 sekundi' },
+  { id: 'speed_medium', icon: '🚀', name: 'Turbo', desc: 'Srednje ispod 60 sekundi' },
+  { id: 'all_tables', icon: '🎓', name: 'Sve tablice', desc: 'Igraj svaku tablicu (1-10)' },
+  { id: 'streak_3', icon: '🔥', name: 'Niz od 3', desc: '3 igre za redom' },
+  { id: 'flashcard_master', icon: '📚', name: 'Učenik', desc: 'Završi učenje bez ponavljanja' },
+  { id: 'hard_win', icon: '💪', name: 'Težak nivo', desc: 'Završi teški nivo' },
+  { id: 'ten_games', icon: '🏅', name: '10 igara', desc: 'Odigraj 10 igara' },
+];
+
+// ═══════════════════════════════════════
+//  PERSISTENCE
+// ═══════════════════════════════════════
+function loadData(key, fallback) {
+  try { const v = localStorage.getItem('mnoz_' + key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function saveData(key, value) {
+  try { localStorage.setItem('mnoz_' + key, JSON.stringify(value)); } catch {}
+}
+
+let achievements = loadData('achievements', {});
+let bestTimes = loadData('bestTimes', {});
+let gamesPlayed = loadData('gamesPlayed', 0);
+let tablesPlayed = loadData('tablesPlayed', []);
+let streak = loadData('streak', 0);
+let lastPlayDate = loadData('lastPlayDate', '');
+
+// ═══════════════════════════════════════
+//  SETUP SCREEN
+// ═══════════════════════════════════════
+function initSetup() {
+  const container = document.getElementById('tableButtons');
+  let html = '';
+  for (let i = 1; i <= 10; i++) {
+    html += `<button class="btn table-btn" data-table="${i}" onclick="toggleTable(${i})" style="border-color:${TABLE_COLORS[i]}">${i}</button>`;
+  }
+  html += `<button class="btn" data-table="random" onclick="selectRandom()" style="padding:10px 16px;">Nasumično</button>`;
+  container.innerHTML = html;
+  updatePlayerInputs();
+}
+
+function selectMode(mode) {
+  G.mode = mode;
+  document.querySelectorAll('.mode-buttons .btn').forEach(b => b.classList.toggle('selected', b.dataset.mode === mode));
+  document.getElementById('difficulty-section').style.display = mode === 'flashcard' ? 'none' : '';
+  document.getElementById('players-section').style.display = mode === 'multiplayer' ? '' : 'none';
+  document.getElementById('flashcard-order-section').style.display = mode === 'flashcard' ? '' : 'none';
+}
+
+function toggleTable(n) {
+  const idx = G.selectedTables.indexOf(n);
+  if (idx >= 0) G.selectedTables.splice(idx, 1); else G.selectedTables.push(n);
+  // Deselect random
+  document.querySelector('[data-table="random"]').classList.remove('selected');
+  updateTableButtons();
+}
+
+function selectRandom() {
+  G.selectedTables = ['random'];
+  updateTableButtons();
+}
+
+function updateTableButtons() {
+  document.querySelectorAll('.table-btn').forEach(b => {
+    const t = parseInt(b.dataset.table);
+    b.classList.toggle('selected', G.selectedTables.includes(t));
+  });
+  document.querySelector('[data-table="random"]').classList.toggle('selected', G.selectedTables.includes('random'));
+}
+
+function selectDifficulty(diff) {
+  G.difficulty = diff;
+  document.querySelectorAll('.diff-buttons .btn').forEach(b => b.classList.toggle('selected', b.dataset.diff === diff));
+}
+
+function selectOrder(order) {
+  G.order = order;
+  document.querySelectorAll('.order-buttons .btn').forEach(b => b.classList.toggle('selected', b.dataset.order === order));
+}
+
+function setPlayerCount(n) {
+  G.playerCount = n;
+  document.querySelectorAll('.player-count-btns .btn').forEach((b, i) => b.classList.toggle('selected', i === n - 2));
+  updatePlayerInputs();
+}
+
+function updatePlayerInputs() {
+  const c = document.getElementById('playerInputs');
+  let html = '';
+  for (let i = 0; i < G.playerCount; i++) {
+    html += `<div class="player-input-row">
+      <label style="color:${PLAYER_COLORS[i]}">Igrač ${i+1}:</label>
+      <input type="text" id="pname${i}" value="${G.playerNames[i]}" placeholder="Ime igrača ${i+1}"
+             onchange="G.playerNames[${i}]=this.value">
+    </div>`;
+  }
+  c.innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+//  START GAME
+// ═══════════════════════════════════════
+function startGame() {
+  // Validate
+  if (G.selectedTables.length === 0) {
+    alert('Odaberi bar jednu tablicu!');
+    return;
+  }
+
+  // Read player names
+  for (let i = 0; i < G.playerCount; i++) {
+    const el = document.getElementById('pname' + i);
+    if (el) G.playerNames[i] = el.value || ('Igrač ' + (i + 1));
+  }
+
+  if (G.mode === 'flashcard') {
+    startFlashcards();
+  } else {
+    startMemoryGame();
+  }
+}
+
+// ═══════════════════════════════════════
+//  FLASHCARD MODE
+// ═══════════════════════════════════════
+function generateFlashcards(tables, shuffle) {
+  let cards = [];
+  const tableList = tables.includes('random') ? [1,2,3,4,5,6,7,8,9,10] : tables;
+  for (const t of tableList) {
+    for (let i = 1; i <= 10; i++) {
+      cards.push({ a: i, b: t, answer: i * t, equation: `${i} × ${t}` });
+    }
+  }
+  if (shuffle) {
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+  }
+  return cards;
+}
+
+function startFlashcards() {
+  const tables = G.selectedTables;
+  G.fcDeck = generateFlashcards(tables, G.order === 'shuffled');
+  G.fcRepeat = [];
+  G.fcDone = 0;
+  G.fcTotal = G.fcDeck.length;
+  G.fcFlipped = false;
+  G.fcRound = 1;
+  G.fcRepeatLog = {};
+  G.fcStartTime = Date.now();
+
+  const label = tables.includes('random') ? 'Sve tablice' : tables.map(t => `Tablica ${t}`).join(', ');
+  document.getElementById('fcTitle').textContent = `Učenje - ${label}`;
+
+  showScreen('flashcard-screen');
+  showNextFlashcard();
+}
+
+function showNextFlashcard() {
+  if (G.fcDeck.length === 0) {
+    if (G.fcRepeat.length > 0) {
+      G.fcDeck = [...G.fcRepeat];
+      G.fcRepeat = [];
+      G.fcRound++;
+      // Shuffle repeat cards
+      for (let i = G.fcDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [G.fcDeck[i], G.fcDeck[j]] = [G.fcDeck[j], G.fcDeck[i]];
+      }
+    } else {
+      finishFlashcards();
+      return;
+    }
+  }
+
+  G.fcCurrentCard = G.fcDeck.shift();
+  G.fcFlipped = false;
+
+  document.getElementById('fcInner').classList.remove('flipped');
+  document.getElementById('fcFront').textContent = G.fcCurrentCard.equation;
+  document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
+  document.getElementById('fcActions').style.display = 'none';
+  document.getElementById('fcHint').style.display = '';
+
+  const done = G.fcDone;
+  const total = G.fcTotal;
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  document.getElementById('fcProgressBar').style.width = pct + '%';
+  document.getElementById('fcStats').textContent = `Krug ${G.fcRound} | Gotovo: ${done}/${total} | Za ponoviti: ${G.fcRepeat.length + G.fcDeck.length}`;
+}
+
+function flipFlashcard() {
+  if (G.fcFlipped) return;
+  G.fcFlipped = true;
+  document.getElementById('fcInner').classList.add('flipped');
+  document.getElementById('fcActions').style.display = 'flex';
+  document.getElementById('fcHint').style.display = 'none';
+  playSound('flip');
+}
+
+function gradeFlashcard(known) {
+  const card = G.fcCurrentCard;
+  if (known) {
+    G.fcDone++;
+    playSound('match');
+  } else {
+    G.fcRepeat.push(card);
+    G.fcRepeatLog[card.equation] = (G.fcRepeatLog[card.equation] || 0) + 1;
+    playSound('wrong');
+  }
+  showNextFlashcard();
+}
+
+function finishFlashcards() {
+  const elapsed = Math.round((Date.now() - G.fcStartTime) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+
+  // Check achievement
+  if (Object.keys(G.fcRepeatLog).length === 0) {
+    unlockAchievement('flashcard_master');
+  }
+
+  let html = `<h1>Učenje završeno!</h1>
+    <div class="results-box">
+    <div style="font-size:1.2em; margin:10px 0;">Vrijeme: ${mins}:${secs.toString().padStart(2,'0')}</div>
+    <div style="margin:10px 0;">Ukupno kartica: ${G.fcTotal}</div>`;
+
+  const repeats = Object.entries(G.fcRepeatLog);
+  if (repeats.length > 0) {
+    html += `<div class="equation-review"><h3>Trebalo ponoviti:</h3><div class="fc-summary">`;
+    repeats.sort((a,b) => b[1] - a[1]);
+    for (const [eq, count] of repeats) {
+      html += `<div class="fc-summary-item"><span>${eq}</span><span class="fc-repeat-count">${count}× ponovljeno</span></div>`;
+    }
+    html += `</div></div>`;
+  } else {
+    html += `<div style="color:var(--success); font-size:1.2em; margin:15px 0;">Sve iz prve! Odlično! &#127881;</div>`;
+  }
+
+  html += `</div>
+    <div class="results-actions">
+      <button class="btn-primary" onclick="startFlashcards()">Ponovi učenje</button>
+      <button class="btn" onclick="showScreen('setup-screen')">Novi odabir</button>
+    </div>`;
+
+  document.getElementById('results-screen').innerHTML = html;
+  showScreen('results-screen');
+  if (repeats.length === 0) launchConfetti();
+}
+
+// ═══════════════════════════════════════
+//  MEMORY GAME
+// ═══════════════════════════════════════
+function generateCards(tables, pairCount) {
+  const tableList = tables.includes('random') ? [1,2,3,4,5,6,7,8,9,10] : [...tables];
+  let allPairs = [];
+
+  for (const t of tableList) {
+    for (let i = 1; i <= 10; i++) {
+      allPairs.push({ a: i, b: t, answer: i * t, equation: `${i} × ${t}`, table: t });
+    }
+  }
+
+  // Shuffle and pick
+  for (let i = allPairs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]];
+  }
+
+  const selected = allPairs.slice(0, pairCount);
+  let cards = [];
+  for (const p of selected) {
+    const color = TABLE_COLORS[p.table];
+    cards.push({
+      id: cards.length, pairId: p.equation, type: 'problem',
+      display: p.equation, table: p.table, color: color,
+      equation: p.equation, answer: p.answer
+    });
+    cards.push({
+      id: cards.length, pairId: p.equation, type: 'answer',
+      display: String(p.answer), table: p.table, color: color,
+      equation: p.equation, answer: p.answer
+    });
+  }
+
+  // Shuffle cards
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+
+  // Re-index
+  cards.forEach((c, i) => c.id = i);
+  return cards;
+}
+
+function startMemoryGame() {
+  const pairCount = PAIR_COUNTS[G.difficulty];
+  G.cards = generateCards(G.selectedTables, pairCount);
+  G.flippedIndices = [];
+  G.matchedPairs = 0;
+  G.totalPairs = pairCount;
+  G.moves = 0;
+  G.currentPlayer = 0;
+  G.playerScores = [0, 0, 0, 0];
+  G.elapsedSeconds = 0;
+  G.locked = false;
+  G.pairAttempts = {};
+
+  // Init pair attempts
+  for (const c of G.cards) {
+    if (c.type === 'problem') G.pairAttempts[c.equation] = 0;
+  }
+
+  showScreen('game-screen');
+  renderBoard();
+  renderScoreboard();
+  startTimer();
+}
+
+function renderBoard() {
+  const grid = document.getElementById('cardGrid');
+  const count = G.cards.length;
+
+  // Determine columns
+  let cols = 5;
+  if (count <= 10) cols = 5;
+  else if (count <= 16) cols = 4;
+  else cols = 6;
+
+  grid.className = 'card-grid grid-cols-' + cols;
+
+  let html = '';
+  for (let i = 0; i < G.cards.length; i++) {
+    const c = G.cards[i];
+    html += `<div class="card-cell">
+      <div class="card" id="card-${i}" onclick="handleCardClick(${i})">
+        <div class="card-face card-face-back"><span class="card-back-symbol">×</span></div>
+        <div class="card-face card-face-front" style="background:${c.color}; color:white;">
+          <span class="card-type">${c.type === 'problem' ? 'Zadatak' : 'Odgovor'}</span>
+          <span class="card-value">${c.display}</span>
+        </div>
+      </div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+
+  // Update header
+  document.getElementById('pairsFound').textContent = `Parovi: ${G.matchedPairs} / ${G.totalPairs}`;
+  document.getElementById('moveCount').textContent = `Potezi: ${G.moves}`;
+}
+
+function renderScoreboard() {
+  const isMulti = G.mode === 'multiplayer';
+  const scoreDiv = document.getElementById('playerScores');
+  const turnDiv = document.getElementById('turnIndicator');
+
+  if (!isMulti) {
+    scoreDiv.innerHTML = '';
+    turnDiv.style.display = 'none';
+    return;
+  }
+
+  turnDiv.style.display = '';
+  let html = '';
+  for (let i = 0; i < G.playerCount; i++) {
+    html += `<div class="player-score ${i === G.currentPlayer ? 'active-player' : ''}" style="border-color:${i === G.currentPlayer ? PLAYER_COLORS[i] : 'transparent'}">
+      <span class="pname" style="color:${PLAYER_COLORS[i]}">${G.playerNames[i]}</span>
+      <span class="pscore">${G.playerScores[i]}</span>
+    </div>`;
+  }
+  scoreDiv.innerHTML = html;
+  turnDiv.innerHTML = `<span style="color:${PLAYER_COLORS[G.currentPlayer]}">Tvoj red, ${G.playerNames[G.currentPlayer]}!</span>`;
+}
+
+function startTimer() {
+  clearInterval(G.timerInterval);
+  G.elapsedSeconds = 0;
+  updateTimerDisplay();
+  G.timerInterval = setInterval(() => {
+    G.elapsedSeconds++;
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(G.elapsedSeconds / 60);
+  const s = G.elapsedSeconds % 60;
+  document.getElementById('gameTimer').textContent = `⏱ ${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ═══════════════════════════════════════
+//  CARD CLICK HANDLER
+// ═══════════════════════════════════════
+function handleCardClick(index) {
+  if (G.locked) return;
+  const card = G.cards[index];
+  if (!card) return;
+
+  // Already flipped or matched
+  const el = document.getElementById('card-' + index);
+  if (el.classList.contains('flipped') || el.classList.contains('matched')) return;
+
+  // Can't flip more than 2
+  if (G.flippedIndices.length >= 2) return;
+
+  // Flip
+  el.classList.add('flipped');
+  G.flippedIndices.push(index);
+  playSound('flip');
+
+  if (G.flippedIndices.length === 2) {
+    G.moves++;
+    document.getElementById('moveCount').textContent = `Potezi: ${G.moves}`;
+    G.locked = true;
+    setTimeout(() => evaluateMatch(), 600);
+  }
+}
+
+function evaluateMatch() {
+  const [i1, i2] = G.flippedIndices;
+  const c1 = G.cards[i1];
+  const c2 = G.cards[i2];
+
+  // Match if same pairId but different type
+  const isMatch = c1.pairId === c2.pairId && c1.type !== c2.type;
+  const equation = c1.equation;
+
+  G.pairAttempts[equation] = (G.pairAttempts[equation] || 0) + 1;
+
+  if (isMatch) {
+    // Match!
+    document.getElementById('card-' + i1).classList.add('matched');
+    document.getElementById('card-' + i2).classList.add('matched');
+    G.matchedPairs++;
+    document.getElementById('pairsFound').textContent = `Parovi: ${G.matchedPairs} / ${G.totalPairs}`;
+
+    if (G.mode === 'multiplayer') {
+      G.playerScores[G.currentPlayer]++;
+      renderScoreboard();
+    }
+
+    playSound('match');
+    showMatchFeedback(c1.equation, c1.answer);
+
+    setTimeout(() => {
+      G.flippedIndices = [];
+      G.locked = false;
+      if (G.matchedPairs === G.totalPairs) {
+        endGame();
+      }
+    }, 1200);
+  } else {
+    // Mismatch
+    playSound('wrong');
+    showMismatchFeedback(c1, c2);
+
+    setTimeout(() => {
+      document.getElementById('card-' + i1).classList.remove('flipped');
+      document.getElementById('card-' + i2).classList.remove('flipped');
+      G.flippedIndices = [];
+      G.locked = false;
+
+      if (G.mode === 'multiplayer') {
+        G.currentPlayer = (G.currentPlayer + 1) % G.playerCount;
+        renderScoreboard();
+      }
+    }, 1800);
+  }
+}
+
+// ═══════════════════════════════════════
+//  FEEDBACK
+// ═══════════════════════════════════════
+function showMatchFeedback(equation, answer) {
+  const overlay = document.getElementById('feedbackOverlay');
+  document.getElementById('feedbackContent').innerHTML = `
+    <div class="feedback-match">
+      <div class="feedback-label">&#9989; Tačno!</div>
+      <div class="feedback-equation">${equation} = ${answer}</div>
+    </div>`;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 1100);
+}
+
+function showMismatchFeedback(c1, c2) {
+  const overlay = document.getElementById('feedbackOverlay');
+  let hint = '';
+  if (c1.type === 'problem' && c2.type === 'answer') {
+    hint = `${c1.equation} = ${c1.answer}, ne ${c2.display}`;
+  } else if (c2.type === 'problem' && c1.type === 'answer') {
+    hint = `${c2.equation} = ${c2.answer}, ne ${c1.display}`;
+  } else {
+    hint = `${c1.equation} = ${c1.answer} | ${c2.equation} = ${c2.answer}`;
+  }
+
+  document.getElementById('feedbackContent').innerHTML = `
+    <div class="feedback-mismatch">
+      <div class="feedback-label">&#10060; Nije par</div>
+      <div class="feedback-hint">${hint}</div>
+    </div>`;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 1600);
+}
+
+// ═══════════════════════════════════════
+//  END GAME
+// ═══════════════════════════════════════
+function endGame() {
+  clearInterval(G.timerInterval);
+  playSound('victory');
+
+  const time = G.elapsedSeconds;
+  const moves = G.moves;
+  const pairs = G.totalPairs;
+  const perfectMoves = pairs; // minimum moves is one per pair
+  const accuracy = Math.round((pairs / moves) * 100);
+  const stars = accuracy >= 90 ? 3 : accuracy >= 65 ? 2 : 1;
+
+  // Persistence
+  gamesPlayed++;
+  saveData('gamesPlayed', gamesPlayed);
+
+  const actualTables = G.selectedTables.includes('random') ? [1,2,3,4,5,6,7,8,9,10] : G.selectedTables;
+  for (const t of actualTables) {
+    if (!tablesPlayed.includes(t)) tablesPlayed.push(t);
+  }
+  saveData('tablesPlayed', tablesPlayed);
+
+  // Streak
+  const today = new Date().toDateString();
+  if (lastPlayDate === today) { /* same day, keep streak */ }
+  else { streak++; }
+  lastPlayDate = today;
+  saveData('streak', streak);
+  saveData('lastPlayDate', lastPlayDate);
+
+  // Best time
+  const key = actualTables.sort().join(',') + '_' + G.difficulty;
+  if (!bestTimes[key] || time < bestTimes[key]) {
+    bestTimes[key] = time;
+    saveData('bestTimes', bestTimes);
+  }
+
+  // Check achievements
+  unlockAchievement('first_game');
+  if (moves === pairs) unlockAchievement('perfect');
+  if (G.difficulty === 'hard') unlockAchievement('hard_win');
+  if (gamesPlayed >= 10) unlockAchievement('ten_games');
+  if (streak >= 3) unlockAchievement('streak_3');
+  if (tablesPlayed.length >= 10) unlockAchievement('all_tables');
+  if (stars === 3 && actualTables.includes(5) && actualTables.length === 1) unlockAchievement('master_5');
+  if (stars === 3 && actualTables.includes(7) && actualTables.length === 1) unlockAchievement('master_7');
+  if (stars === 3 && actualTables.includes(9) && actualTables.length === 1) unlockAchievement('master_9');
+  if (G.difficulty === 'easy' && time < 30) unlockAchievement('speed_easy');
+  if (G.difficulty === 'medium' && time < 60) unlockAchievement('speed_medium');
+
+  // Build results
+  const mins = Math.floor(time / 60);
+  const secs = time % 60;
+
+  const starsHtml = '★'.repeat(stars) + '<span style="opacity:0.2">' + '★'.repeat(3 - stars) + '</span>';
+
+  let html = '';
+
+  // Restore the results screen structure
+  document.getElementById('results-screen').innerHTML = `
+    <h1 id="resultsTitle">Bravo!</h1>
+    <div class="results-box">
+      <div class="stars" id="resultsStars"></div>
+      <div class="winner-announce" id="winnerAnnounce" style="display:none;"></div>
+      <div class="player-results" id="playerResults"></div>
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="equation-review" id="equationReview"></div>
+    </div>
+    <div class="results-actions">
+      <button class="btn-primary" onclick="playAgain()">Igraj ponovo</button>
+      <button class="btn" onclick="showScreen('setup-screen')">Novi odabir</button>
+      <button class="btn" onclick="showScreen('achievements-screen'); renderAchievements()">Dostignuća</button>
+    </div>`;
+
+  document.getElementById('resultsStars').innerHTML = starsHtml;
+
+  // Multiplayer results
+  if (G.mode === 'multiplayer') {
+    let maxScore = 0, winnerIdx = 0;
+    for (let i = 0; i < G.playerCount; i++) {
+      if (G.playerScores[i] > maxScore) { maxScore = G.playerScores[i]; winnerIdx = i; }
+    }
+    const winners = [];
+    for (let i = 0; i < G.playerCount; i++) {
+      if (G.playerScores[i] === maxScore) winners.push(i);
+    }
+    const winnerAnnounce = document.getElementById('winnerAnnounce');
+    winnerAnnounce.style.display = '';
+    if (winners.length > 1) {
+      winnerAnnounce.textContent = 'Izjednačeno!';
+    } else {
+      winnerAnnounce.innerHTML = `<span style="color:${PLAYER_COLORS[winnerIdx]}">Pobjeda - ${G.playerNames[winnerIdx]}!</span>`;
+    }
+
+    let pr = '';
+    for (let i = 0; i < G.playerCount; i++) {
+      pr += `<div class="player-result-row">
+        <span style="color:${PLAYER_COLORS[i]}; font-weight:bold;">${G.playerNames[i]}</span>
+        <span>${G.playerScores[i]} parova</span>
+      </div>`;
+    }
+    document.getElementById('playerResults').innerHTML = pr;
+  }
+
+  // Stats
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-item"><div class="stat-value">${mins}:${secs.toString().padStart(2,'0')}</div><div class="stat-label">Vrijeme</div></div>
+    <div class="stat-item"><div class="stat-value">${moves}</div><div class="stat-label">Potezi</div></div>
+    <div class="stat-item"><div class="stat-value">${accuracy}%</div><div class="stat-label">Tačnost</div></div>
+    <div class="stat-item"><div class="stat-value">${bestTimes[key] ? Math.floor(bestTimes[key]/60) + ':' + (bestTimes[key]%60).toString().padStart(2,'0') : '-'}</div><div class="stat-label">Najbolje vrijeme</div></div>`;
+
+  // Equation review
+  const eqEntries = Object.entries(G.pairAttempts);
+  eqEntries.sort((a, b) => b[1] - a[1]);
+  let eqHtml = '<h3>Pregled jednadžbi</h3>';
+  for (const [eq, attempts] of eqEntries) {
+    const card = G.cards.find(c => c.equation === eq);
+    const hard = attempts > 1;
+    eqHtml += `<div class="eq-row ${hard ? 'eq-hard' : 'eq-easy'}">
+      <span>${eq} = ${card ? card.answer : '?'}</span>
+      <span class="eq-attempts">${attempts === 1 ? 'Iz prvog pokušaja ✓' : attempts + ' pokušaja'}</span>
+    </div>`;
+  }
+  document.getElementById('equationReview').innerHTML = eqHtml;
+
+  showScreen('results-screen');
+  launchConfetti();
+}
+
+function playAgain() {
+  startMemoryGame();
+}
+
+function confirmQuit() {
+  clearInterval(G.timerInterval);
+  showScreen('setup-screen');
+}
+
+// ═══════════════════════════════════════
+//  ACHIEVEMENTS
+// ═══════════════════════════════════════
+function unlockAchievement(id) {
+  if (achievements[id]) return;
+  achievements[id] = Date.now();
+  saveData('achievements', achievements);
+
+  const ach = ACHIEVEMENTS.find(a => a.id === id);
+  if (ach) showAchievementNotif(ach);
+}
+
+function showAchievementNotif(ach) {
+  document.getElementById('achNotifIcon').textContent = ach.icon;
+  document.getElementById('achNotifText').textContent = ach.name;
+  const el = document.getElementById('achievementNotif');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function renderAchievements() {
+  const grid = document.getElementById('achievementGrid');
+  let html = '';
+  for (const a of ACHIEVEMENTS) {
+    const unlocked = !!achievements[a.id];
+    html += `<div class="achievement-card ${unlocked ? 'unlocked' : 'locked'}">
+      <div class="achievement-icon">${a.icon}</div>
+      <div class="achievement-name">${a.name}</div>
+      <div class="achievement-desc">${a.desc}</div>
+      ${unlocked ? '<div style="color:gold;font-size:0.8em;margin-top:4px;">Otključano ✓</div>' : ''}
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+//  SCREEN MANAGEMENT
+// ═══════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════
+//  SOUND (Web Audio API)
+// ═══════════════════════════════════════
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type) {
+  if (!G.soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0.15, now);
+
+    switch (type) {
+      case 'flip':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.08);
+        gain.gain.linearRampToValueAtTime(0, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+        break;
+      case 'match':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523, now);
+        osc.frequency.setValueAtTime(659, now + 0.1);
+        osc.frequency.setValueAtTime(784, now + 0.2);
+        gain.gain.linearRampToValueAtTime(0, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+        break;
+      case 'wrong':
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.linearRampToValueAtTime(200, now + 0.2);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+        break;
+      case 'victory':
+        osc.type = 'sine';
+        const notes = [523, 587, 659, 784, 880, 1047];
+        notes.forEach((freq, i) => {
+          osc.frequency.setValueAtTime(freq, now + i * 0.1);
+        });
+        gain.gain.linearRampToValueAtTime(0, now + 0.7);
+        osc.start(now); osc.stop(now + 0.7);
+        break;
+    }
+  } catch (e) {}
+}
+
+// Sound toggle
+document.getElementById('soundToggle').addEventListener('click', () => {
+  G.soundEnabled = !G.soundEnabled;
+  document.getElementById('soundToggle').textContent = G.soundEnabled ? '🔊' : '🔇';
+});
+
+// ═══════════════════════════════════════
+//  CONFETTI
+// ═══════════════════════════════════════
+function launchConfetti() {
+  const container = document.getElementById('confettiContainer');
+  container.innerHTML = '';
+  const colors = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#9b59b6','#e67e22','#e84393','#1abc9c'];
+  for (let i = 0; i < 80; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.width = (5 + Math.random() * 8) + 'px';
+    piece.style.height = (5 + Math.random() * 8) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+    piece.style.animationDelay = (Math.random() * 1) + 's';
+    container.appendChild(piece);
+  }
+  setTimeout(() => container.innerHTML = '', 5000);
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+initSetup();
+
+// ═══════════════════════════════════════
+//  SERVICE WORKER (PWA)
+// ═══════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
