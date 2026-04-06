@@ -666,11 +666,24 @@ function showNextFlashcard() {
   G.fcCurrentCard = G.fcDeck.shift();
   G.fcFlipped = false;
 
-  document.getElementById('fcInner').classList.remove('flipped');
-  document.getElementById('fcFront').textContent = G.fcCurrentCard.equation;
-  document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
-  document.getElementById('fcActions').style.display = 'none';
-  document.getElementById('fcHint').style.display = '';
+  const fcInner = document.getElementById('fcInner');
+  const isFlipped = fcInner.classList.contains('flipped');
+
+  if (isFlipped) {
+    document.getElementById('fcBack').textContent = '';
+    fcInner.classList.remove('flipped');
+    document.getElementById('fcActions').style.display = 'none';
+    document.getElementById('fcHint').style.display = '';
+    setTimeout(() => {
+      document.getElementById('fcFront').textContent = G.fcCurrentCard.equation;
+      document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
+    }, 500);
+  } else {
+    document.getElementById('fcFront').textContent = G.fcCurrentCard.equation;
+    document.getElementById('fcBack').textContent = G.fcCurrentCard.answer;
+    document.getElementById('fcActions').style.display = 'none';
+    document.getElementById('fcHint').style.display = '';
+  }
 
   const done = G.fcDone;
   const total = G.fcTotal;
